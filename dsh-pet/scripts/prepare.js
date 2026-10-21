@@ -75,6 +75,8 @@ const keep = [
   // 读取方 dsh-app-boot 的 iconOf 找不到文件会抛错，图标退回默认插画
   'assets/logo.png',
   'scripts/ensure-electron.mjs',
+  'scripts/codex-hook.mjs',
+  'docs/codex-adapter.md',
   'cordis.patch.yml',
 ];
 writeFileSync(PKG, JSON.stringify({ ...pkg, files: keep }, null, 2) + '\n', 'utf8');

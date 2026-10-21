@@ -15,8 +15,9 @@
  *     → 余额路由命中"未登记接口"分支 → `{ ok: false, reason: 'unsupported' }`
  *   - `credentials.resolve()` → 恒 `undefined` → 凭证类失败走 `credential-missing`
  *   - `llm.*` → 模型清单为空；生成调用直接抛错 → 碎碎念/对话明确失败，不会静默
- *   - `on(...)` → 不订阅任何事件：独立模式没有 DSH 会话，工作状态因此保持空闲
+ *   - `on(...)` → 默认不订阅事件；显式注入外部事件总线后可由可选适配器驱动状态
  */
+import type { EventEmitter } from 'node:events';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 /** 独立模式下余额路由报出的服务商 id（未登记 → `unsupported`，气泡里能看到它） */
@@ -59,6 +60,8 @@ export interface StandaloneContextOptions {
   /** 注入路由收集数组（独立模式先起服务拿到端口，再 `apply`，两者共用同一个数组） */
   routes?: RegisteredRoute[];
   ai?: StandaloneModelService;
+  /** Optional external host events; absent by default. */
+  events?: EventEmitter;
   authenticatedUrl?: (baseUrl: string) => string;
 }
 
@@ -136,9 +139,12 @@ export function createStandaloneContext(options: StandaloneContextOptions): Stan
         return undefined;
       }
     },
-    /** 独立模式没有 DSH 会话事件：不订阅，工作状态保持空闲 */
-    on(): () => void {
-      return () => {};
+    /** Default standalone has no events; external adapters are explicit opt-ins. */
+    on(name: string, listener: (...args: unknown[]) => void): () => void {
+      options.events?.on(name, listener);
+      return () => {
+        options.events?.off(name, listener);
+      };
     },
     logger,
     webServer,

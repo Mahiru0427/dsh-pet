@@ -69,6 +69,8 @@
     "assets/config.jsonc",
     "assets/logo.png",
     "scripts/ensure-electron.mjs",
+    "scripts/codex-hook.mjs",
+    "docs/codex-adapter.md",
     "cordis.patch.yml"
   ],
   "scripts": {

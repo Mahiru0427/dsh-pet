@@ -20,6 +20,8 @@
  * （结构化失败 + 日志，不假装成功）。详见 README 的「独立运行（不打开 DSH）」一节。
  */
 import { existsSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
+import { startCodexEvents } from './codex-events';
 
 import { flattenPetList, readAllConfig } from '../host/config';
 import { dshHomeDir, packageRoot } from '../host/helper-process';
@@ -56,13 +58,26 @@ async function run(logger: StandaloneLogger, options: { port: number }): Promise
   const portRef = { value: options.port };
   const ai = createStandaloneAi(home, logger);
   const security = createRequestSecurity();
+  const queue = process.env.DSH_PET_CODEX_EVENTS;
+  const events = queue ? new EventEmitter() : undefined;
   const context = createStandaloneContext({
+    events,
     port: () => portRef.value,
     logger,
     routes,
     ai,
     authenticatedUrl: security.authenticatedUrl,
   });
+  // Register the opt-in bridge as an effect so existing shutdown disposes it.
+  if (queue && events) {
+    (context.ctx.effect as (fn: () => unknown) => unknown)(() => {
+      const bridge = startCodexEvents({
+        directory: queue,
+        emit: (session, event) => events.emit('session/event', session, event),
+      });
+      return bridge.dispose;
+    });
+  }
   // /shutdown 的回调要在服务构造时给出去，而停机函数要在服务之后定义：
   // 用一个可替换的转发器解耦（服务构造时只拿到"将来会是谁"）。
   let forwardShutdown: () => void = () => {};
